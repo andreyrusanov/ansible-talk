@@ -1,0 +1,4 @@
+---
+- geerlingguy.nginx
+- name: uwsgi
+  src: https://github.com/andreyrusanov/custom-uwsgi.git

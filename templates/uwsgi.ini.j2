@@ -1,0 +1,13 @@
+[uwsgi]
+chdir = {{ source }}
+home = {{ venv }}
+module = {{ app }}.wsgi:application
+master = true
+processes = 5
+uid={{ user }}
+gid={{ user }}
+socket = /run/uwsgi/{{ app }}.sock
+chown-socket = {{ user }}:nginx
+chmod-socket=664
+vacuum = true
+plugins=python3

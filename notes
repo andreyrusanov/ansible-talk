@@ -1,0 +1,27 @@
+setenforce 0
+
+- git
+- gcc
+- python34
+- python34-devel
+- python-pip
+- which
+
+- role: geerlingguy.nginx
+  nginx_vhosts:
+    - listen: "80"
+      server_name: "192.168.100.100"
+      access_log: "/var/log/nginx/access.log"
+      error_log: "/var/log/nginx/error.log"
+      extra_parameters: |
+        location / {
+            include uwsgi_params;
+            uwsgi_pass unix:///run/uwsgi/{{ app }}.sock;
+        }
+- role: uwsgi
+  uwsgi_user: "{{ user }}"
+  uwsgi_conf: "{{ conf }}"
+  uwsgi_plugins:
+    - uwsgi-plugin-python3
+
+repo: https://github.com/andreyrusanov/example-django-project.git

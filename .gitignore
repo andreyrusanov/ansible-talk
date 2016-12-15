@@ -1,0 +1,4 @@
+.idea
+example_playbook.yml
+.vagrant
+roles
