@@ -1,0 +1,84 @@
+---
+- hosts: all
+  become: yes
+  become_user: root
+  vars:
+    app: helloworld
+    user: "{{ app }}"
+    home: "/home/{{ app }}"
+    conf: "{{ home }}/conf"
+    source: "{{ home }}/app"
+    venv: "{{ home }}/venv"
+    repo: https://github.com/andreyrusanov/example-django-project.git
+  roles:
+    - role: geerlingguy.nginx
+      nginx_vhosts:
+        - listen: "80"
+          server_name: "192.168.100.100"
+          access_log: "/var/log/nginx/access.log"
+          error_log: "/var/log/nginx/error.log"
+          extra_parameters: |
+            location / {
+                include uwsgi_params;
+                uwsgi_pass unix:///run/uwsgi/{{ app }}.sock;
+            }
+    - role: uwsgi
+      uwsgi_user: "{{ user }}"
+      uwsgi_conf: "{{ conf }}"
+      uwsgi_plugins:
+        - uwsgi-plugin-python3
+  pre_tasks:
+    - name: disable SE linux
+      shell: setenforce 0
+
+    - name: install epel
+      yum: name=epel-release update_cache=yes
+
+  tasks:
+     - name: create user
+       user: name={{ user }} groups=nginx append=yes
+
+     - name: setup conf dir
+       file: path={{ conf }} state=directory
+       become_user: "{{ user }}"
+
+     - name: copy uwsgi tempalte
+       template: src=templates/uwsgi.ini.j2 dest={{ conf }}/uwsgi.ini
+       become_user: "{{ user }}"
+
+     - name: install dependencies
+       yum: name={{ item }}
+       with_items:
+         - git
+         - gcc
+         - python34
+         - python34-devel
+         - python-pip
+         - which
+
+     - name: install venv
+       pip: name=virtualenv
+
+     - name: is venv exists
+       stat: path={{ venv }}
+       register: venv_dir
+
+     - name: create venv
+       shell: virtualenv {{ venv }} -p `which python3`
+       when: not venv_dir.stat.exists
+       become_user: "{{ user }}"
+
+     - name: clone project
+       git: repo={{ repo }} dest={{ source }}
+       become_user: "{{ user }}"
+
+     - name: pip install
+       pip: requirements={{ source }}/requirements.txt virtualenv={{ venv }}
+       become_user: "{{ user }}"
+
+     - name: migrate
+       django_manage: app_path={{ source }} command=migrate virtualenv={{ venv }}
+       become_user: "{{ user }}"
+
+     - name: uwsgi
+       service: name=uwsgi state=restarted
